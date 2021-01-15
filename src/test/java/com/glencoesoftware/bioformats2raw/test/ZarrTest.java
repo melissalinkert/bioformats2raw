@@ -58,6 +58,8 @@ public class ZarrTest {
 
   Converter converter;
 
+  OMEXMLService service;
+
   /**
    * Set logging to warn before all methods.
    *
@@ -297,6 +299,27 @@ public class ZarrTest {
   }
 
   /**
+   * Test thumbnailing only.
+   */
+  @Test
+  public void testThumbnail() throws Exception {
+    input = fake();
+    assertTool("--thumbnail", "100x100");
+    N5ZarrReader z = new N5ZarrReader(output.resolve("data.zarr").toString());
+
+    assertEquals(z.list("/").length, 1);
+    assertEquals(z.list("/0").length, 1);
+
+    DatasetAttributes da = z.getDatasetAttributes("/0/0");
+    assertArrayEquals(new long[] {100, 100, 1, 1, 1}, da.getDimensions());
+
+    OMEXMLMetadata metadata = getOMEMetadata();
+    assertEquals(metadata.getImageCount(), 1);
+    assertEquals(metadata.getPixelsSizeX(0).getValue(), 100);
+    assertEquals(metadata.getPixelsSizeY(0).getValue(), 100);
+  }
+
+  /**
    * Test more than one series.
    */
   @Test
@@ -499,14 +522,8 @@ public class ZarrTest {
 
     input = fake(null, null, originalMetadata);
     assertTool();
-    Path omexml = output.resolve("METADATA.ome.xml");
-    StringBuilder xml = new StringBuilder();
-    Files.lines(omexml).forEach(v -> xml.append(v));
 
-    OMEXMLService service =
-      new ServiceFactory().getInstance(OMEXMLService.class);
-    OMEXMLMetadata retrieve =
-      (OMEXMLMetadata) service.createOMEXMLMetadata(xml.toString());
+    OMEXMLMetadata retrieve = getOMEMetadata();
     Hashtable convertedMetadata = service.getOriginalMetadata(retrieve);
     assertEquals(originalMetadata.size(), convertedMetadata.size());
     for (String key : originalMetadata.keySet()) {
@@ -576,6 +593,18 @@ public class ZarrTest {
       assertEquals("Bio-Formats " + FormatTools.VERSION, version);
       assertEquals("loci.common.image.SimpleImageScaler", method);
     }
+  }
+
+  private OMEXMLMetadata getOMEMetadata() throws Exception {
+    if (service == null) {
+      service = new ServiceFactory().getInstance(OMEXMLService.class);
+    }
+
+    Path omexml = output.resolve("METADATA.ome.xml");
+    StringBuilder xml = new StringBuilder();
+    Files.lines(omexml).forEach(v -> xml.append(v));
+
+    return (OMEXMLMetadata) service.createOMEXMLMetadata(xml.toString());
   }
 
 }

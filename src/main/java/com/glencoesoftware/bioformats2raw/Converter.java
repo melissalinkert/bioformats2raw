@@ -53,6 +53,7 @@ import loci.formats.services.OMEXMLService;
 import loci.formats.services.OMEXMLServiceImpl;
 import ome.xml.model.enums.DimensionOrder;
 import ome.xml.model.enums.EnumerationException;
+import ome.xml.model.primitives.PositiveInteger;
 
 import org.janelia.saalfeldlab.n5.ByteArrayDataBlock;
 import org.janelia.saalfeldlab.n5.Compression;
@@ -279,6 +280,15 @@ public class Converter implements Callable<Void> {
   )
   private volatile List<String> readerOptions = new ArrayList<String>();
 
+  @Option(
+          names = "--thumbnail",
+          arity = "0..1",
+          split = "x",
+          description = "Only write a thumbnail of a specified size (WxH)"
+  )
+  private volatile Integer[] thumbnailDimensions;
+
+
   /** Scaling implementation that will be used during downsampling. */
   private volatile IImageScaler scaler = new SimpleImageScaler();
 
@@ -435,6 +445,13 @@ public class Converter implements Callable<Void> {
 
         for (int s=0; s<meta.getImageCount(); s++) {
           meta.setPixelsBigEndian(true, s);
+
+          if (thumbnailDimensions != null) {
+            meta.setPixelsSizeX(
+              new PositiveInteger(thumbnailDimensions[0]), s);
+            meta.setPixelsSizeY(
+              new PositiveInteger(thumbnailDimensions[1]), s);
+          }
         }
 
         String xml = getService().getOMEXML(meta);
@@ -768,12 +785,14 @@ public class Converter implements Callable<Void> {
       isLittleEndian = workingReader.isLittleEndian();
       // calculate a reasonable pyramid depth if not specified as an argument
       if (pyramidResolutions == null) {
-        int width = workingReader.getSizeX();
-        int height = workingReader.getSizeY();
-        while (width > MIN_SIZE || height > MIN_SIZE) {
-          resolutions++;
-          width /= PYRAMID_SCALE;
-          height /= PYRAMID_SCALE;
+        if (thumbnailDimensions == null) {
+          int width = workingReader.getSizeX();
+          int height = workingReader.getSizeY();
+          while (width > MIN_SIZE || height > MIN_SIZE) {
+            resolutions++;
+            width /= PYRAMID_SCALE;
+            height /= PYRAMID_SCALE;
+          }
         }
       }
       else {
@@ -813,6 +832,11 @@ public class Converter implements Callable<Void> {
       int scale = (int) Math.pow(PYRAMID_SCALE, resolution);
       int scaledWidth = sizeX / scale;
       int scaledHeight = sizeY / scale;
+
+      if (thumbnailDimensions != null) {
+        scaledWidth = thumbnailDimensions[0];
+        scaledHeight = thumbnailDimensions[1];
+      }
 
       int activeTileWidth = tileWidth;
       int activeTileHeight = tileHeight;
