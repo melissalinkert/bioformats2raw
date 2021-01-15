@@ -532,6 +532,17 @@ public class ZarrTest {
   }
 
   /**
+   * Test that execution fails if --thumbnail and --resolutions are used.
+   */
+  @Test
+  public void testFailThumbnailResolutions() throws IOException {
+    input = fake();
+    assertThrows(ExecutionException.class, () -> {
+      assertTool("--resolutions", "3", "--thumbnail", "10x10");
+    });
+  }
+
+  /**
    * Test that execution fails if the output directory already exists and the
    * <code>--overwrite</code> option has not been supplied.
    */

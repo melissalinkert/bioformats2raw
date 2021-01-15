@@ -389,6 +389,11 @@ public class Converter implements Callable<Void> {
         "--fill-value not yet supported for " + readerClass);
     }
 
+    if (pyramidResolutions != null && thumbnailDimensions != null) {
+      throw new IllegalArgumentException(
+        "--resolutions and --thumbnail cannot be used together");
+    }
+
     // Now with our found type instantiate our queue of readers for use
     // during conversion
     for (int i=0; i < maxWorkers; i++) {
