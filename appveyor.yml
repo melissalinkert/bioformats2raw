@@ -6,12 +6,12 @@ environment:
   ARTIFACTORY_PASSWORD:
     secure: O6ThMzLvtSOPLV0U5yFOkl8G1tFrFOGZEpKI4NSD12c=
 
-image: Ubuntu
+image: macos
 stack: jdk 11
 
 install:
 #  - sh: sudo apt-get update
-  - sh: sudo apt-get install -y libblosc1
+  - sh: brew install c-blosc
 
 build: off
 
