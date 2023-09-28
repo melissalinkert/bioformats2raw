@@ -89,6 +89,10 @@ import com.glencoesoftware.bioformats2raw.MiraxReader.TilePointer;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.math.DoubleMath;
+import com.scalableminds.zarrjava.ZarrException;
+import com.scalableminds.zarrjava.store.FilesystemStore;
+import com.scalableminds.zarrjava.v3.Group;
+import com.scalableminds.zarrjava.v3.GroupMetadata;
 import com.univocity.parsers.csv.CsvParser;
 import com.univocity.parsers.csv.CsvParserSettings;
 
@@ -173,6 +177,8 @@ public class Converter implements Callable<Integer> {
   private volatile boolean noRootGroup = false;
   private volatile boolean reuseExistingResolutions = false;
   private volatile int minSize = MIN_SIZE;
+
+  private volatile boolean useVersion3 = false;
 
   /** Scaling implementation that will be used during downsampling. */
   private volatile IImageScaler scaler = new SimpleImageScaler();
@@ -799,6 +805,20 @@ public class Converter implements Callable<Integer> {
     dimensionOrder = order;
   }
 
+  /**
+   * Set whether or not to write Zarr v3. Defaults to v2.
+   *
+   * @param version3 true if Zarr v3 should be written
+   */
+  @Option(
+          names = "--v3",
+          description = "Write Zarr v3",
+          defaultValue = "false"
+  )
+  public void setUseVersion3(boolean version3) {
+    useVersion3 = version3;
+  }
+
   // Option getters
 
   /**
@@ -1040,6 +1060,13 @@ public class Converter implements Callable<Integer> {
    */
   public DimensionOrder getDimensionOrder() {
     return dimensionOrder;
+  }
+
+  /**
+   * @return true if Zarr v3 should be written
+   */
+  public boolean useVersion3() {
+    return useVersion3;
   }
 
   // Conversion methods
@@ -1306,35 +1333,10 @@ public class Converter implements Callable<Integer> {
 
       // fileset level metadata
       if (!noRootGroup) {
-        final ZarrGroup root = ZarrGroup.create(getRootPath());
-        Map<String, Object> attributes = new HashMap<String, Object>();
-        attributes.put("bioformats2raw.layout", LAYOUT);
-
-        root.writeAttributes(attributes);
+        createRootGroup();
       }
       if (!noOMEMeta) {
-        Path metadataPath = getRootPath().resolve("OME");
-        final ZarrGroup root = ZarrGroup.create(metadataPath);
-        Map<String, Object> attributes = new HashMap<String, Object>();
-
-        // record the path to each series (multiscales) and the corresponding
-        // series (OME-XML Image) index
-        // using the index as the key would mean that the index is stored
-        // as a string instead of an integer
-        List<String> groups = new ArrayList<String>();
-        for (Integer index : seriesList) {
-          String resolutionString = String.format(
-                  scaleFormatString, getScaleFormatStringArgs(index, 0));
-          String seriesString = "";
-          if (resolutionString.indexOf('/') >= 0) {
-            seriesString = resolutionString.substring(0,
-                resolutionString.lastIndexOf('/'));
-          }
-          groups.add(seriesString);
-        }
-        attributes.put("series", groups);
-
-        root.writeAttributes(attributes);
+        writeOMEMetadata();
       }
 
       for (Integer index : seriesList) {
@@ -2052,7 +2054,7 @@ public class Converter implements Callable<Integer> {
 
     // assumes only one plate defined
     Path rootPath = getRootPath();
-    ZarrGroup root = ZarrGroup.open(rootPath);
+
     int plate = 0;
     Map<String, Object> plateMap = new HashMap<String, Object>();
 
@@ -2118,9 +2120,8 @@ public class Converter implements Callable<Integer> {
           List<Map<String, Object>> imageList =
             new ArrayList<Map<String, Object>>();
           String rowPath = index.getRowPath();
-          ZarrGroup rowGroup = root.createSubGroup(rowPath);
+          createGroupWithAttributes(rowPath, null);
           String columnPath = index.getColumnPath();
-          ZarrGroup columnGroup = rowGroup.createSubGroup(columnPath);
           for (HCSIndex field : hcsIndexes) {
             if (field.getPlateIndex() == index.getPlateIndex() &&
               field.getWellRowIndex() == index.getWellRowIndex() &&
@@ -2138,9 +2139,12 @@ public class Converter implements Callable<Integer> {
 
           Map<String, Object> wellMap = new HashMap<String, Object>();
           wellMap.put("images", imageList);
-          Map<String, Object> attributes = columnGroup.getAttributes();
+          Map<String, Object> attributes = new HashMap<String, Object>();
           attributes.put("well", wellMap);
-          columnGroup.writeAttributes(attributes);
+          // TODO: better way to set relative path here?
+          createGroupWithAttributes(
+            rowPath + File.separator + columnPath,
+            attributes);
 
           // make sure the row/column indexes are added to the plate attributes
           // this is necessary when Plate.Rows or Plate.Columns is not set
@@ -2190,9 +2194,24 @@ public class Converter implements Callable<Integer> {
     plateMap.put("field_count", maxField + 1);
     plateMap.put("version", NGFF_VERSION);
 
-    Map<String, Object> attributes = root.getAttributes();
-    attributes.put("plate", plateMap);
-    root.writeAttributes(attributes);
+    if (useVersion3()) {
+      try {
+        Group root = Group.open(
+          new FilesystemStore(getRootPath()).resolve("."));
+        Map<String, Object> attributes = root.metadata.attributes;
+        attributes.put("plate", plateMap);
+        root.setAttributes(attributes);
+      }
+      catch (ZarrException e) {
+        throw new IOException("Failed to set HCS metadata", e);
+      }
+    }
+    else {
+      ZarrGroup root = ZarrGroup.open(rootPath);
+      Map<String, Object> attributes = root.getAttributes();
+      attributes.put("plate", plateMap);
+      root.writeAttributes(attributes);
+    }
   }
 
   /**
@@ -2789,6 +2808,58 @@ public class Converter implements Callable<Integer> {
       height /= PYRAMID_SCALE;
     }
     return resolutions;
+  }
+
+  private void createGroupWithAttributes(String relativePath,
+    Map<String, Object> attrs)
+    throws IOException
+  {
+    if (useVersion3()) {
+      // group won't be created if Map is passed directly
+      try {
+        Group g = Group.create(
+          new FilesystemStore(getRootPath()).resolve(relativePath),
+          new GroupMetadata(attrs));
+      }
+      catch (ZarrException e) {
+        throw new IOException("Failed to create group " + relativePath, e);
+      }
+    }
+    else {
+      final ZarrGroup root =
+        ZarrGroup.create(getRootPath().resolve(relativePath));
+      root.writeAttributes(attrs);
+    }
+  }
+
+  private void createRootGroup() throws IOException {
+    Map<String, Object> attributes = new HashMap<String, Object>();
+    attributes.put("bioformats2raw.layout", LAYOUT);
+
+    createGroupWithAttributes(".", attributes);
+  }
+
+  private void writeOMEMetadata() throws IOException {
+    Map<String, Object> attributes = new HashMap<String, Object>();
+
+    // record the path to each series (multiscales) and the corresponding
+    // series (OME-XML Image) index
+    // using the index as the key would mean that the index is stored
+    // as a string instead of an integer
+    List<String> groups = new ArrayList<String>();
+    for (Integer index : seriesList) {
+      String resolutionString = String.format(
+              scaleFormatString, getScaleFormatStringArgs(index, 0));
+      String seriesString = "";
+      if (resolutionString.indexOf('/') >= 0) {
+        seriesString = resolutionString.substring(0,
+            resolutionString.lastIndexOf('/'));
+      }
+      groups.add(seriesString);
+    }
+    attributes.put("series", groups);
+
+    createGroupWithAttributes("OME", attributes);
   }
 
   private static Slf4JStopWatch stopWatch() {
