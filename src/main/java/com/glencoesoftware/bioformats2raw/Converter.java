@@ -81,7 +81,6 @@ import org.slf4j.LoggerFactory;
 
 import com.bc.zarr.ArrayParams;
 import com.bc.zarr.CompressorFactory;
-import com.bc.zarr.DataType;
 import com.bc.zarr.DimensionSeparator;
 import com.bc.zarr.ZarrArray;
 import com.bc.zarr.ZarrGroup;
@@ -91,6 +90,8 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.math.DoubleMath;
 import com.scalableminds.zarrjava.ZarrException;
 import com.scalableminds.zarrjava.store.FilesystemStore;
+import com.scalableminds.zarrjava.v3.Array;
+import com.scalableminds.zarrjava.v3.ArrayMetadata;
 import com.scalableminds.zarrjava.v3.Group;
 import com.scalableminds.zarrjava.v3.GroupMetadata;
 import com.univocity.parsers.csv.CsvParser;
@@ -100,6 +101,7 @@ import ch.qos.logback.classic.Level;
 import picocli.CommandLine;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
+import ucar.ma2.DataType;
 import ucar.ma2.InvalidRangeException;
 
 /**
@@ -1481,17 +1483,17 @@ public class Converter implements Callable<Integer> {
    */
   public static int bytesPerPixel(DataType dataType) {
     switch (dataType) {
-      case i1:
-      case u1:
+      case BYTE:
+      case UBYTE:
         return 1;
-      case i2:
-      case u2:
+      case SHORT:
+      case USHORT:
         return 2;
-      case i4:
-      case u4:
-      case f4:
+      case INT:
+      case UINT:
+      case FLOAT:
         return 4;
-      case f8:
+      case DOUBLE:
         return 8;
       default:
         throw new IllegalArgumentException(
@@ -1511,7 +1513,8 @@ public class Converter implements Callable<Integer> {
    * @throws IOException
    * @throws InvalidRangeException
    */
-  public static byte[] readAsBytes(ZarrArray zArray, int[] shape, int[] offset)
+  public static byte[] readAsBytes(ArrayWrapper zArray,
+    int[] shape, int[] offset)
       throws IOException, InvalidRangeException
   {
     DataType dataType = zArray.getDataType();
@@ -1520,32 +1523,32 @@ public class Converter implements Callable<Integer> {
     byte[] tileAsBytes = new byte[size * bytesPerPixel];
     ByteBuffer tileAsByteBuffer = ByteBuffer.wrap(tileAsBytes);
     switch (dataType) {
-      case i1:
-      case u1: {
+      case BYTE:
+      case UBYTE: {
         zArray.read(tileAsBytes, shape, offset);
         break;
       }
-      case i2:
-      case u2: {
+      case SHORT:
+      case USHORT: {
         short[] tileAsShorts = new short[size];
         zArray.read(tileAsShorts, shape, offset);
         tileAsByteBuffer.asShortBuffer().put(tileAsShorts);
         break;
       }
-      case i4:
-      case u4: {
+      case INT:
+      case UINT: {
         int[] tileAsInts = new int[size];
         zArray.read(tileAsInts, shape, offset);
         tileAsByteBuffer.asIntBuffer().put(tileAsInts);
         break;
       }
-      case f4: {
+      case FLOAT: {
         float[] tileAsFloats = new float[size];
         zArray.read(tileAsFloats, shape, offset);
         tileAsByteBuffer.asFloatBuffer().put(tileAsFloats);
         break;
       }
-      case f8: {
+      case DOUBLE: {
         double[] tileAsDoubles = new double[size];
         zArray.read(tileAsDoubles, shape, offset);
         tileAsByteBuffer.asDoubleBuffer().put(tileAsDoubles);
@@ -1571,7 +1574,7 @@ public class Converter implements Callable<Integer> {
    * @throws InvalidRangeException
    */
   private static void writeBytes(
-      ZarrArray zArray, int[] shape, int[] offset, ByteBuffer tile)
+      ArrayWrapper zArray, int[] shape, int[] offset, ByteBuffer tile)
           throws IOException, InvalidRangeException
   {
     int size = IntStream.of(shape).reduce((a, b) -> a * b).orElse(0);
@@ -1579,35 +1582,35 @@ public class Converter implements Callable<Integer> {
     Slf4JStopWatch t1 = stopWatch();
     try {
       switch (dataType) {
-        case i1:
-        case u1: {
-          zArray.write(tile.array(), shape, offset);
+        case BYTE:
+        case UBYTE: {
+          zArray.write(tile.array(), shape, offset, dataType);
           break;
         }
-        case i2:
-        case u2: {
+        case SHORT:
+        case USHORT: {
           short[] tileAsShorts = new short[size];
           tile.asShortBuffer().get(tileAsShorts);
-          zArray.write(tileAsShorts, shape, offset);
+          zArray.write(tileAsShorts, shape, offset, dataType);
           break;
         }
-        case i4:
-        case u4: {
+        case INT:
+        case UINT: {
           int[] tileAsInts = new int[size];
           tile.asIntBuffer().get(tileAsInts);
-          zArray.write(tileAsInts, shape, offset);
+          zArray.write(tileAsInts, shape, offset, dataType);
           break;
         }
-        case f4: {
+        case FLOAT: {
           float[] tileAsFloats = new float[size];
           tile.asFloatBuffer().get(tileAsFloats);
-          zArray.write(tileAsFloats, shape, offset);
+          zArray.write(tileAsFloats, shape, offset, dataType);
           break;
         }
-        case f8: {
+        case DOUBLE: {
           double[] tileAsDoubles = new double[size];
           tile.asDoubleBuffer().put(tileAsDoubles);
-          zArray.write(tileAsDoubles, shape, offset);
+          zArray.write(tileAsDoubles, shape, offset, dataType);
           break;
         }
         default:
@@ -1629,7 +1632,7 @@ public class Converter implements Callable<Integer> {
     final String pathName =
         String.format(scaleFormatString,
             getScaleFormatStringArgs(series, resolution - 1));
-    final ZarrArray zarr = ZarrArray.open(getRootPath().resolve(pathName));
+    final ArrayWrapper zarr = openArray(pathName);
     int[] dimensions = zarr.getShape();
     int[] blockSizes = zarr.getChunks();
     int activeTileWidth = blockSizes[blockSizes.length - 1];
@@ -1766,7 +1769,6 @@ public class Converter implements Callable<Integer> {
     String pathName =
         String.format(scaleFormatString,
             getScaleFormatStringArgs(series, resolution));
-    final ZarrArray zarr = ZarrArray.open(getRootPath().resolve(pathName));
     IFormatReader reader = readers.take();
     boolean littleEndian = reader.isLittleEndian();
     int bpp = FormatTools.getBytesPerPixel(reader.getPixelType());
@@ -1819,7 +1821,7 @@ public class Converter implements Callable<Integer> {
       tileBuffer.order(
         littleEndian ? ByteOrder.LITTLE_ENDIAN : ByteOrder.BIG_ENDIAN);
     }
-    writeBytes(zarr, shape, offset, tileBuffer);
+    writeBytes(openArray(pathName), shape, offset, tileBuffer);
     getProgressListener().notifyChunkEnd(plane, offset[4], offset[3], zOffset);
   }
 
@@ -1948,16 +1950,10 @@ public class Converter implements Callable<Integer> {
       DataType dataType = getZarrType(pixelType);
       String resolutionString = String.format(
               scaleFormatString, getScaleFormatStringArgs(series, resolution));
-      ArrayParams arrayParams = new ArrayParams()
-          .shape(getDimensions(
-              workingReader, scaledWidth, scaledHeight, scaledDepth))
-          .chunks(new int[] {1, 1, activeChunkDepth, activeTileHeight,
-            activeTileWidth})
-          .dataType(dataType)
-          .dimensionSeparator(getDimensionSeparator())
-          .compressor(CompressorFactory.create(
-              compressionType.toString(), compressionProperties));
-      ZarrArray.create(getRootPath().resolve(resolutionString), arrayParams);
+      createArray(resolutionString,
+        getDimensions(workingReader, scaledWidth, scaledHeight, scaledDepth),
+        new int[] {1, 1, activeChunkDepth, activeTileHeight, activeTileWidth},
+        dataType);
 
       nTile = new AtomicInteger(0);
       tileCount = (int) Math.ceil((double) scaledWidth / tileWidth)
@@ -2605,21 +2601,21 @@ public class Converter implements Callable<Integer> {
   public static DataType getZarrType(int type) {
     switch (type) {
       case FormatTools.INT8:
-        return DataType.i1;
+        return DataType.BYTE;
       case FormatTools.UINT8:
-        return DataType.u1;
+        return DataType.UBYTE;
       case FormatTools.INT16:
-        return DataType.i2;
+        return DataType.SHORT;
       case FormatTools.UINT16:
-        return DataType.u2;
+        return DataType.USHORT;
       case FormatTools.INT32:
-        return DataType.i4;
+        return DataType.INT;
       case FormatTools.UINT32:
-        return DataType.u4;
+        return DataType.UINT;
       case FormatTools.FLOAT:
-        return DataType.f4;
+        return DataType.FLOAT;
       case FormatTools.DOUBLE:
-        return DataType.f8;
+        return DataType.DOUBLE;
       default:
         throw new IllegalArgumentException("Unsupported pixel type: "
             + FormatTools.getPixelTypeString(type));
@@ -2860,6 +2856,102 @@ public class Converter implements Callable<Integer> {
     attributes.put("series", groups);
 
     createGroupWithAttributes("OME", attributes);
+  }
+
+  private ArrayWrapper openArray(String path) throws IOException {
+    if (useVersion3()) {
+      try {
+        return new ArrayWrapper(
+          Array.open(new FilesystemStore(getRootPath()).resolve(path)));
+      }
+      catch (ZarrException e) {
+        throw new IOException("Failed to open array " + path, e);
+      }
+    }
+    return new ArrayWrapper(ZarrArray.open(getRootPath().resolve(path)));
+  }
+
+  private void createArray(String path, int[] shape, int[] chunk,
+    DataType dataType)
+    throws IOException
+  {
+    if (useVersion3()) {
+      long[] v3Shape = new long[shape.length];
+      for (int i=0; i<shape.length; i++) {
+        v3Shape[i] = shape[i];
+      }
+      try {
+        ArrayMetadata arrayMetadata = Array.metadataBuilder()
+          .withDataType(getV3DataType(dataType))
+          .withShape(v3Shape)
+          .withChunkShape(chunk)
+          .withDefaultChunkKeyEncoding(getDimensionSeparator().toString())
+          .build();
+        // TODO: this doesn't allow for changing the compressor
+
+        Array.create(new FilesystemStore(getRootPath()).resolve(path),
+          arrayMetadata);
+      }
+      catch (ZarrException e) {
+        throw new IOException("Failed to open array " + path, e);
+      }
+    }
+    else {
+      ArrayParams arrayParams = new ArrayParams()
+          .shape(shape)
+          .chunks(chunk)
+          .dataType(getV2DataType(dataType))
+          .dimensionSeparator(getDimensionSeparator())
+          .compressor(CompressorFactory.create(
+              compressionType.toString(), compressionProperties));
+      ZarrArray.create(getRootPath().resolve(path), arrayParams);
+    }
+  }
+
+  private com.scalableminds.zarrjava.v3.DataType getV3DataType(DataType type) {
+    switch (type) {
+      case BYTE:
+        return com.scalableminds.zarrjava.v3.DataType.INT8;
+      case UBYTE:
+        return com.scalableminds.zarrjava.v3.DataType.UINT8;
+      case SHORT:
+        return com.scalableminds.zarrjava.v3.DataType.INT16;
+      case USHORT:
+        return com.scalableminds.zarrjava.v3.DataType.UINT16;
+      case INT:
+        return com.scalableminds.zarrjava.v3.DataType.INT32;
+      case UINT:
+        return com.scalableminds.zarrjava.v3.DataType.UINT32;
+      case FLOAT:
+        return com.scalableminds.zarrjava.v3.DataType.FLOAT32;
+      case DOUBLE:
+        return com.scalableminds.zarrjava.v3.DataType.FLOAT64;
+      default:
+        throw new IllegalArgumentException("Unsupported v3 data type: " + type);
+    }
+  }
+
+  private com.bc.zarr.DataType getV2DataType(DataType type) {
+    switch (type) {
+      case BYTE:
+        return com.bc.zarr.DataType.i1;
+      case UBYTE:
+        return com.bc.zarr.DataType.u1;
+      case SHORT:
+        return com.bc.zarr.DataType.i2;
+      case USHORT:
+        return com.bc.zarr.DataType.u2;
+      case INT:
+        return com.bc.zarr.DataType.i4;
+      case UINT:
+        return com.bc.zarr.DataType.u4;
+      case FLOAT:
+        return com.bc.zarr.DataType.f4;
+      case DOUBLE:
+        return com.bc.zarr.DataType.f8;
+      default:
+        throw new IllegalArgumentException("Unsupported v2 data type: " + type);
+    }
   }
 
   private static Slf4JStopWatch stopWatch() {
