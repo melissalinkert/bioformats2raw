@@ -15,6 +15,9 @@ import com.bc.zarr.ZarrArray;
 import com.scalableminds.zarrjava.ZarrException;
 import com.scalableminds.zarrjava.v3.Array;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import ucar.ma2.DataType;
 import ucar.ma2.InvalidRangeException;
 
@@ -25,6 +28,10 @@ import ucar.ma2.InvalidRangeException;
  * conversion logic.
  */
 public class ArrayWrapper {
+
+  private static final Logger LOGGER =
+    LoggerFactory.getLogger(ArrayWrapper.class);
+
   private ZarrArray v2 = null;
   private Array v3 = null;
 
@@ -119,8 +126,11 @@ public class ArrayWrapper {
   {
     if (isV3()) {
       try {
+        LOGGER.debug("reading shape {} from v3 array {}", shape, v3);
         long[] shapeV3 = getV3Shape(shape);
         ucar.ma2.Array array = v3.read(shapeV3, offset);
+        LOGGER.debug("  requested shape: {}, returned shape: {}",
+          shapeV3, array.getShape());
         ByteBuffer bb = array.getDataAsByteBuffer();
         bb.get(buf);
       }
@@ -250,6 +260,7 @@ public class ArrayWrapper {
   {
     if (isV3()) {
       ucar.ma2.Array array = ucar.ma2.Array.factory(dataType, shape, buf);
+      LOGGER.debug("writing v3 array {} to {}", array, v3);
       v3.write(getV3Shape(offset), array);
     }
     else {
