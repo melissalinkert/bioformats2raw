@@ -16,15 +16,6 @@ Requirements
 
 As of 0.12.0, Java 11 or later is required to run bioformats2raw.
 
-libblosc (https://github.com/Blosc/c-blosc) version 1.9.0 or later must be installed separately.
-The native libraries are not packaged with any relevant jars.  See also note in jzarr readme (https://github.com/bcdev/jzarr/blob/master/README.md)
-
- * macOS: `brew install c-blosc` then set `JAVA_OPTS=-Djna.library.path=$(echo $(brew --cellar c-blosc)/*/lib/)`
- * Windows: Pre-built blosc DLLs are available from the [Fiji project](https://sites.imagej.net/N5/lib/win64/).  Rename the downloaded DLL to `blosc.dll` and place in a fixed location then set `JAVA_OPTS="-Djna.library.path=C:\path\to\blosc\folder"`.
- * Ubuntu: `apt-get install libblosc1`
- * RHEL/Rocky Linux: `dnf install blosc` after enabling the EPEL repository.
- * conda: Installing `bioformats2raw` via conda (see below) will include `blosc` as a dependency.
-
 If using features that rely on OpenCV (see the [Downsampling type](#downsampling-type) section below), minimum supported versions are:
 
  * Ubuntu 18.04
@@ -116,6 +107,7 @@ Run the conversion:
     bioformats2raw /path/to/file.svs /path/to/zarr-pyramid
 
 By default, the resolutions will be set so that the smallest resolution is no greater than 256x256.
+A scaling factor of 2 is used between consecutive resolutions.
 The target of the smallest resolution can be configured with `--target-min-size` e.g. to ensure
 that the smallest resolution is no greater than 128x128
 
@@ -414,8 +406,11 @@ conversions, but if they are needed for troubleshooting then the `--keep-memo-fi
 need to be created, `--keep-memo-files` will still result in no `.*.bfmemo` files at the end of conversion. This is particularly common
 for small datasets that can be read very quickly.
 
+Downsampling options
+====================
+
 Downsampling type
-=================
+-----------------
 
 By default, pyramid resolutions are generated using a [very simple downsampling algorithm](https://github.com/ome/ome-common-java/blob/master/src/main/java/loci/common/image/SimpleImageScaler.java).
 For some input data types, this may not be ideal. The `--downsample-type` option can be used to specify an alternative algorithm.
@@ -424,6 +419,17 @@ No additional downsampling algorithms are directly implemented in bioformats2raw
 
 If the minimum system requirements (see above) are not met, or the input data type is int8 or int32 (see https://github.com/glencoesoftware/bioformats2raw/pull/199),
 then any value of `--downsample-type` other than the default is expected to throw an exception.
+
+Converting an existing pyramid
+------------------------------
+
+Some input file formats will already contain pyramid resolutions. By default, all resolutions other than the largest will be ignored, and the pyramid will be recalculated.
+To preserve the existing pyramid instead of recalculating, use the `--use-existing-resolutions` option.
+
+If `--use-existing-resolutions` is specified for an image with no existing pyramid, then a pyramid will still be calculated according to the image dimensions.
+
+Note that an existing pyramid may not be ideal for viewing. It may have a scaling factor other than 2, use different scaling factors at different resolution levels,
+or contain fewer resolutions than are ideal. This can lead to sub-optimal viewing performance, especially for data imported into OMERO.
 
 Additional readers
 ==================
