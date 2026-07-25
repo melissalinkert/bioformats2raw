@@ -62,7 +62,7 @@ public class OMEZarr1Test extends ZarrV3Test {
     int[] cAxes = new int[] {c};
     int[] tAxes = new int[] {t};
     if (mz != null && mz.length() > 1) {
-      if (Math.abs(mz.step - 1) < Constants.EPSILON) {
+      if (Math.abs(mz.step - 1) > Constants.EPSILON) {
         zAxes = new int[] {mz.length(), z / mz.length()};
       }
       else {
@@ -70,7 +70,7 @@ public class OMEZarr1Test extends ZarrV3Test {
       }
     }
     if (mc != null && mc.length() > 1) {
-      if (Math.abs(mc.step - 1) < Constants.EPSILON) {
+      if (Math.abs(mc.step - 1) > Constants.EPSILON) {
         cAxes = new int[] {mc.length(), c / mc.length()};
       }
       else {
@@ -78,7 +78,7 @@ public class OMEZarr1Test extends ZarrV3Test {
       }
     }
     if (mt != null && mt.length() > 1) {
-      if (Math.abs(mt.step - 1) < Constants.EPSILON) {
+      if (Math.abs(mt.step - 1) > Constants.EPSILON) {
         tAxes = new int[] {mt.length(), t / mt.length()};
       }
       else {
@@ -108,9 +108,12 @@ public class OMEZarr1Test extends ZarrV3Test {
       r.setId(input.toString());
       for (int p=0; p<r.getImageCount(); p++) {
         int[] zct = r.getZCTCoords(p);
-        int[] zz = FormatTools.rasterToPosition(zAxes, zct[0]);
-        int[] cc = FormatTools.rasterToPosition(cAxes, zct[1]);
-        int[] tt = FormatTools.rasterToPosition(tAxes, zct[2]);
+        int[] zz = reverse(
+          FormatTools.rasterToPosition(reverse(zAxes), zct[0]));
+        int[] cc = reverse(
+          FormatTools.rasterToPosition(reverse(cAxes), zct[1]));
+        int[] tt = reverse(
+          FormatTools.rasterToPosition(reverse(tAxes), zct[2]));
         int[] offset = new int[dims];
         System.arraycopy(tt, 0, offset, 0, tt.length);
         System.arraycopy(cc, 0, offset, tt.length, cc.length);
@@ -129,6 +132,18 @@ public class OMEZarr1Test extends ZarrV3Test {
           "plane #" + p + ", offset = " + Arrays.toString(offset));
       }
     }
+  }
+
+  private int[] reverse(int[] pos) {
+    if (pos.length == 1) {
+      return pos;
+    }
+    int[] reversed = new int[pos.length];
+    for (int i=0; i<pos.length/2; i++) {
+      reversed[i] = pos[pos.length - i - 1];
+      reversed[reversed.length - i - 1] = pos[i];
+    }
+    return reversed;
   }
 
 }

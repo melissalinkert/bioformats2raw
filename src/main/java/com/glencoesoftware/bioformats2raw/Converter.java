@@ -2187,7 +2187,7 @@ public class Converter implements Callable<Integer> {
             Axis actualZ =
               new Axis(c, scaledDepth / mz.length(), scaledChunkDepth);
             Axis moduloZ = new Axis(mz.type, mz.length(), 1);
-            if (Math.abs(mz.step - 1) < Constants.EPSILON) {
+            if (Math.abs(mz.step - 1) > Constants.EPSILON) {
               axes.add(moduloZ);
               axes.add(actualZ);
             }
@@ -2203,7 +2203,7 @@ public class Converter implements Callable<Integer> {
           break;
         case 'C':
           if (mc != null && mc.length() > 1) {
-            if (Math.abs(mc.step - 1) < Constants.EPSILON) {
+            if (Math.abs(mc.step - 1) > Constants.EPSILON) {
               axes.add(new Axis(mc.type, mc.length(), 1));
               axes.add(new Axis(c, sizeC / mc.length(), 1));
             }
@@ -2218,7 +2218,7 @@ public class Converter implements Callable<Integer> {
           break;
         case 'T':
           if (mt != null && mt.length() > 1) {
-            if (Math.abs(mt.step - 1) < Constants.EPSILON) {
+            if (Math.abs(mt.step - 1) > Constants.EPSILON) {
               axes.add(new Axis(mt.type, mt.length(), 1));
               axes.add(new Axis(c, sizeT / mt.length(), 1));
             }
@@ -2339,13 +2339,13 @@ public class Converter implements Callable<Integer> {
     boolean useModulo = getNGFFVersion() == SupportedVersions.NGFF_DEV;
     Modulo mz = useModulo ? reader.getModuloZ() : null;
     int[] zLengths = new int[mz != null && mz.length() > 1 ? 2 : 1];
-    int zLengthIndex = 0;
+    int zLengthIndex = zLengths.length - 1;
     Modulo mc = useModulo ? reader.getModuloC() : null;
     int[] cLengths = new int[mc != null && mc.length() > 1 ? 2 : 1];
-    int cLengthIndex = 0;
+    int cLengthIndex = cLengths.length - 1;
     Modulo mt = useModulo ? reader.getModuloT() : null;
     int[] tLengths = new int[mt != null && mt.length() > 1 ? 2 : 1];
-    int tLengthIndex = 0;
+    int tLengthIndex = tLengths.length - 1;
 
     for (int i=0; i<axes.size(); i++) {
       Axis a = axes.get(i);
@@ -2360,44 +2360,53 @@ public class Converter implements Callable<Integer> {
         (mz != null && axisType.equals(mz.type)))
       {
         zLengths[zLengthIndex] = a.getLength();
-        zLengthIndex++;
+        zLengthIndex--;
       }
       else if (axisType.equals("C") ||
         (mc != null && axisType.equals(mc.type)))
       {
         cLengths[cLengthIndex] = a.getLength();
-        cLengthIndex++;
+        cLengthIndex--;
       }
       else if (axisType.equals("T") ||
         (mt != null && axisType.equals(mt.type)))
       {
         tLengths[tLengthIndex] = a.getLength();
-        tLengthIndex++;
+        tLengthIndex--;
       }
       else {
         LOGGER.trace("ignoring axis type {}", axes.get(i).getType());
       }
 
-      if (zLengthIndex == zLengths.length) {
-        int[] zOffset = FormatTools.rasterToPosition(zLengths, zct[0]);
+      if (zLengthIndex < 0) {
+        int[] zOffset = reverse(FormatTools.rasterToPosition(zLengths, zct[0]));
         System.arraycopy(zOffset, 0,
           offset, i - (zOffset.length - 1), zOffset.length);
-        zLengthIndex = 0;
+        zLengthIndex = zLengths.length - 1;
       }
-      if (cLengthIndex == cLengths.length) {
-        int[] cOffset = FormatTools.rasterToPosition(cLengths, zct[1]);
+      if (cLengthIndex < 0) {
+        int[] cOffset = reverse(FormatTools.rasterToPosition(cLengths, zct[1]));
         System.arraycopy(cOffset, 0,
           offset, i - (cOffset.length - 1), cOffset.length);
-        cLengthIndex = 0;
+        cLengthIndex = cLengths.length - 1;
       }
-      if (tLengthIndex == tLengths.length) {
-        int[] tOffset = FormatTools.rasterToPosition(tLengths, zct[2]);
+      if (tLengthIndex < 0) {
+        int[] tOffset = reverse(FormatTools.rasterToPosition(tLengths, zct[2]));
         System.arraycopy(tOffset, 0,
           offset, i - (tOffset.length - 1), tOffset.length);
-        tLengthIndex = 0;
+        tLengthIndex = tLengths.length - 1;
       }
     }
     return offset;
+  }
+
+  private int[] reverse(int[] pos) {
+    for (int i=0; i<pos.length/2; i++) {
+      int tmp = pos[i];
+      pos[i] = pos[pos.length - i - 1];
+      pos[pos.length - i - 1] = tmp;
+    }
+    return pos;
   }
 
   private void processChunk(int series, int resolution, int plane,
