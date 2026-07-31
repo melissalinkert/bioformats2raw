@@ -1248,8 +1248,7 @@ public class Converter implements Callable<Integer> {
    * @return true if Zarr v3 data should be written
    */
   public boolean getV3() {
-    return getNGFFVersion() == SupportedVersions.NGFF_05 ||
-      getNGFFVersion() == SupportedVersions.NGFF_DEV;
+    return getNGFFVersion().getZarrVersion() == 3;
   }
 
   /**
@@ -2165,7 +2164,7 @@ public class Converter implements Callable<Integer> {
     Modulo mz = null;
     Modulo mc = null;
     Modulo mt = null;
-    if (getNGFFVersion() == SupportedVersions.NGFF_DEV) {
+    if (getNGFFVersion().supportsExtraDimensions()) {
       mz = reader.getModuloZ();
       mc = reader.getModuloC();
       mt = reader.getModuloT();
@@ -2336,7 +2335,7 @@ public class Converter implements Callable<Integer> {
     int[] offset = new int[axes.size()];
     Arrays.fill(offset, 0);
 
-    boolean useModulo = getNGFFVersion() == SupportedVersions.NGFF_DEV;
+    boolean useModulo = getNGFFVersion().supportsExtraDimensions();
     Modulo mz = useModulo ? reader.getModuloZ() : null;
     int[] zLengths = new int[mz != null && mz.length() > 1 ? 2 : 1];
     int zLengthIndex = zLengths.length - 1;
@@ -2464,7 +2463,7 @@ public class Converter implements Callable<Integer> {
         int planeIndex;
         try {
           planeIndex = FormatTools.getIndex(reader, z, zct[1], zct[2]);
-          if (getNGFFVersion() == SupportedVersions.NGFF_DEV) {
+          if (getNGFFVersion().supportsExtraDimensions()) {
             Modulo mz = reader.getModuloZ();
             if (mz != null && mz.length() > 1) {
               planeIndex = plane;
