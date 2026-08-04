@@ -51,11 +51,9 @@ For additional information, please see:
 Installation
 ============
 
-1. Download and unpack a release artifact:
+Download and unpack a release artifact:
 
     https://github.com/glencoesoftware/bioformats2raw/releases
-
-2. OR, install via `conda` as described at [conda-bioformats2raw](https://github.com/ome/conda-bioformats2raw).
 
 Development Installation
 ========================
