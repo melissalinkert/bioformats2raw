@@ -38,12 +38,18 @@ public class OMEZarr1Test extends ZarrV3Test {
    * should be reported as their own axis.
    *
    * @param moduloFile OME-TIFF file with modulo dimension(s)
+   * @param compact true if compact dimensions should be written
    */
   @ParameterizedTest
   @MethodSource("getModuloFiles")
-  public void testModulo(String moduloFile) throws Exception {
+  public void testModulo(String moduloFile, boolean compact) throws Exception {
     input = getTestFile(moduloFile);
-    assertTool("--ngff-version", getNGFFVersion());
+    if (compact) {
+      assertTool("--ngff-version", getNGFFVersion(), "--compact");
+    }
+    else {
+      assertTool("--ngff-version", getNGFFVersion());
+    }
 
     OMEXMLMetadata meta = getOMEMetadataStore();
     OMEXMLService service =
@@ -58,33 +64,9 @@ public class OMEZarr1Test extends ZarrV3Test {
     Modulo mc = service.getModuloAlongC(meta, 0);
     Modulo mt = service.getModuloAlongT(meta, 0);
 
-    int[] zAxes = new int[] {z};
-    int[] cAxes = new int[] {c};
-    int[] tAxes = new int[] {t};
-    if (mz != null && mz.length() > 1) {
-      if (Math.abs(mz.step - 1) > Constants.EPSILON) {
-        zAxes = new int[] {mz.length(), z / mz.length()};
-      }
-      else {
-        zAxes = new int[] {z / mz.length(), mz.length()};
-      }
-    }
-    if (mc != null && mc.length() > 1) {
-      if (Math.abs(mc.step - 1) > Constants.EPSILON) {
-        cAxes = new int[] {mc.length(), c / mc.length()};
-      }
-      else {
-        cAxes = new int[] {c / mc.length(), mc.length()};
-      }
-    }
-    if (mt != null && mt.length() > 1) {
-      if (Math.abs(mt.step - 1) > Constants.EPSILON) {
-        tAxes = new int[] {mt.length(), t / mt.length()};
-      }
-      else {
-        tAxes = new int[] {t / mt.length(), mt.length()};
-      }
-    }
+    int[] zAxes = getAxes(z, mz, compact);
+    int[] cAxes = getAxes(c, mc, compact);
+    int[] tAxes = getAxes(t, mt, compact);
     int dims = zAxes.length + cAxes.length + tAxes.length + 2;
     int[] chunkShape = new int[dims];
     Arrays.fill(chunkShape, 1);
@@ -132,6 +114,21 @@ public class OMEZarr1Test extends ZarrV3Test {
           "plane #" + p + ", offset = " + Arrays.toString(offset));
       }
     }
+  }
+
+  private int[] getAxes(int size, Modulo m, boolean compact) {
+    if (compact && size == 1) {
+      return new int[0];
+    }
+    if (m != null) {
+      if (Math.abs(m.step - 1) > Constants.EPSILON) {
+        return new int[] {m.length(), size / m.length()};
+      }
+      else {
+        return new int[] {size / m.length(), m.length()};
+      }
+    }
+    return new int[] {size};
   }
 
   private int[] reverse(int[] pos) {

@@ -175,11 +175,17 @@ public abstract class AbstractZarrTest {
    * which is to ignore the modulo dimensions in favor of the parent dimension.
    *
    * @param moduloFile OME-TIFF file with modulo dimension(s)
+   * @param compact true if compact dimensions should be used
    */
   @ParameterizedTest
   @MethodSource("getModuloFiles")
-  public void testModulo(String moduloFile) throws Exception {
+  public void testModulo(String moduloFile, boolean compact) throws Exception {
     input = getTestFile(moduloFile);
+    // intentionally skip compact tests by default, since there are many other
+    // compact tests that cover the case where modulo dimensions are not used
+    if (compact) {
+      return;
+    }
     assertTool();
 
     OME ome = getOMEMetadata();
@@ -214,9 +220,12 @@ public abstract class AbstractZarrTest {
 
   static Stream<Arguments> getModuloFiles() {
     return Stream.of(
-      Arguments.of("mini-flim-moduloC.ome.tiff"),
-      Arguments.of("mini-flim-moduloT.ome.tiff"),
-      Arguments.of("mini-spim-moduloZ.ome.tiff")
+      Arguments.of("mini-flim-moduloC.ome.tiff", false),
+      Arguments.of("mini-flim-moduloC.ome.tiff", true),
+      Arguments.of("mini-flim-moduloT.ome.tiff", false),
+      Arguments.of("mini-flim-moduloT.ome.tiff", true),
+      Arguments.of("mini-spim-moduloZ.ome.tiff", false),
+      Arguments.of("mini-spim-moduloZ.ome.tiff", true)
     );
   }
 
