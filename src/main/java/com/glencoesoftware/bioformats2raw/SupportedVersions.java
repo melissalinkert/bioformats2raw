@@ -13,8 +13,8 @@ import java.util.List;
 public enum SupportedVersions {
   NGFF_01("0.1", 2, null),
   NGFF_04("0.4", 2, null),
-  NGFF_05("0.5", 3, null),
-  NGFF_DEV("1.0-DEV", 3, new Integer[] {3});
+  NGFF_05("0.5", 3, new Integer[] {2}),
+  NGFF_DEV("1.0-DEV", 3, new Integer[] {2, 3});
 
   private final String value;
   private final int zarrVersion;
