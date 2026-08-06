@@ -2365,6 +2365,30 @@ public class Converter implements Callable<Integer> {
     return shape;
   }
 
+  private int[] getModuloLengths(Modulo m, int size) {
+    if (m == null) {
+      // no modulo, so the number of axis lengths is 1
+      // unless dimension compacting was applied
+      if (getCompactDimensions() && size == 1) {
+        return new int[0];
+      }
+      return new int[1];
+    }
+    if (getCompactDimensions()) {
+      // one or both modulo dimensions may have been compacted away
+      // so don't assume the length should be 2
+      int count = 0;
+      if (m.length() > 1) {
+        count++;
+      }
+      if (size / m.length() > 1) {
+        count++;
+      }
+      return new int[count];
+    }
+    return new int[2];
+  }
+
   /**
    * Retrieve the offset based on either the configured or input file
    * dimension order at the current resolution.
@@ -2386,13 +2410,13 @@ public class Converter implements Callable<Integer> {
 
     boolean useModulo = getNGFFVersion().supportsExtraDimensions();
     Modulo mz = useModulo ? reader.getModuloZ() : null;
-    int[] zLengths = new int[mz != null && mz.length() > 1 ? 2 : 1];
+    int[] zLengths = getModuloLengths(mz, reader.getSizeZ());
     int zLengthIndex = zLengths.length - 1;
     Modulo mc = useModulo ? reader.getModuloC() : null;
-    int[] cLengths = new int[mc != null && mc.length() > 1 ? 2 : 1];
+    int[] cLengths = getModuloLengths(mc, reader.getSizeC());
     int cLengthIndex = cLengths.length - 1;
     Modulo mt = useModulo ? reader.getModuloT() : null;
-    int[] tLengths = new int[mt != null && mt.length() > 1 ? 2 : 1];
+    int[] tLengths = getModuloLengths(mt, reader.getSizeT());
     int tLengthIndex = tLengths.length - 1;
 
     for (int i=0; i<axes.size(); i++) {
