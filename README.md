@@ -51,11 +51,9 @@ For additional information, please see:
 Installation
 ============
 
-1. Download and unpack a release artifact:
+Download and unpack a release artifact:
 
     https://github.com/glencoesoftware/bioformats2raw/releases
-
-2. OR, install via `conda` as described at [conda-bioformats2raw](https://github.com/ome/conda-bioformats2raw).
 
 Development Installation
 ========================
@@ -172,7 +170,7 @@ Supported options for `blosc` are:
 * `clevel=<level>`, where the default is `clevel=5`. Valid values are integers from 0 to 9 inclusive, where 0 generally
   indicates no compression and 9 generally indicates most compression.
 * `blocksize=<blocksize>`, where the default is `blocksize=0`.
-* `shuffle=<shuffle type>`, where the default is `shuffle=byteshuffle`. Valid values are `noshuffle`, `shuffle`/`byteshuffle`, and `bitshuffle`.
+* `shuffle=<shuffle type>`, where the default is `shuffle=shuffle`. Valid values are `noshuffle`, `shuffle`, and `bitshuffle`.
 
 See also the blosc codec definition in the [Zarr v3 specification](https://zarr-specs.readthedocs.io/en/latest/v3/codecs/blosc/index.html#configuration-parameters).
 
@@ -452,6 +450,11 @@ it is very important to include the entire corresponding directory when transfer
 
 The `mirax.use_metadata_dimensions` reader option can be used change how XY dimensions are calculated.
 By default, this option is `true`, but setting it to `false` may be helpful if the image size appears incorrect.
+
+`MiraxReader` keeps a cache of decompressed tiles as they are read from the input data. By default, at most 64 tiles
+will be stored in the cache. The cache size may be changed using the `--max-cached-tiles n` option, where `n` is the tile count.
+Increasing this option may improve performance if a large amount of memory is available, as it can reduce both the number of file reads
+and the number of times decompression is performed.
 
 BioTekReader
 ------------
