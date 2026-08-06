@@ -121,11 +121,19 @@ public class OMEZarr1Test extends ZarrV3Test {
       return new int[0];
     }
     if (m != null) {
+      int mLength = m.length();
+      int newSize = size / m.length();
+      if (compact && newSize == 1) {
+        return new int[] {mLength};
+      }
+      if (compact && mLength == 1) {
+        return new int[] {newSize};
+      }
       if (Math.abs(m.step - 1) > Constants.EPSILON) {
-        return new int[] {m.length(), size / m.length()};
+        return new int[] {mLength, newSize};
       }
       else {
-        return new int[] {size / m.length(), m.length()};
+        return new int[] {newSize, mLength};
       }
     }
     return new int[] {size};
