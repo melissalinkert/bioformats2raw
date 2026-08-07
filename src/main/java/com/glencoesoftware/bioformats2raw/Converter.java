@@ -2386,7 +2386,7 @@ public class Converter implements Callable<Integer> {
       }
       return new int[count];
     }
-    return new int[2];
+    return new int[m.length() > 1 ? 2 : 1];
   }
 
   /**
