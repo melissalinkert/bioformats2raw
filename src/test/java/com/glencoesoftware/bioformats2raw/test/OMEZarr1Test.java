@@ -29,12 +29,12 @@ public class OMEZarr1Test extends ZarrV3Test {
 
   @Override
   String getNGFFVersion() {
-    return "1.0-DEV";
+    return "0.9.dev1";
   }
 
   /**
    * Test modulo dimension handling.
-   * Since this is OME-Zarr 1.0-DEV which includes RFC-3, modulo dimensions
+   * Since this is OME-Zarr 0.9.dev1 which includes RFC-3, modulo dimensions
    * should be reported as their own axis.
    *
    * @param moduloFile OME-TIFF file with modulo dimension(s)
