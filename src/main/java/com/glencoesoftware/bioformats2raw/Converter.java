@@ -2223,18 +2223,18 @@ public class Converter implements Callable<Integer> {
     for (char c : o.toCharArray()) {
       switch (c) {
         case 'X':
-          axes.add(new Axis(c, scaledWidth, scaledTileWidth));
+          axes.add(new Axis(c, scaledWidth, scaledTileWidth, "space"));
           spatialDims++;
           break;
         case 'Y':
-          axes.add(new Axis(c, scaledHeight, scaledTileHeight));
+          axes.add(new Axis(c, scaledHeight, scaledTileHeight, "space"));
           spatialDims++;
           break;
         case 'Z':
           if (mz != null && mz.length() > 1) {
             Axis actualZ =
-              new Axis(c, scaledDepth / mz.length(), scaledChunkDepth);
-            Axis moduloZ = new Axis(mz.type, mz.length(), 1);
+              new Axis(c, scaledDepth / mz.length(), scaledChunkDepth, "space");
+            Axis moduloZ = new Axis(mz.type, mz.length(), 1, "space");
             if (Math.abs(mz.step - 1) > Constants.EPSILON) {
               axes.add(moduloZ);
               axes.add(actualZ);
@@ -2245,38 +2245,38 @@ public class Converter implements Callable<Integer> {
             }
           }
           else {
-            axes.add(new Axis(c, scaledDepth, scaledChunkDepth));
+            axes.add(new Axis(c, scaledDepth, scaledChunkDepth, "space"));
           }
           spatialDims++;
           break;
         case 'C':
           if (mc != null && mc.length() > 1) {
             if (Math.abs(mc.step - 1) > Constants.EPSILON) {
-              axes.add(new Axis(mc.type, mc.length(), 1));
-              axes.add(new Axis(c, sizeC / mc.length(), 1));
+              axes.add(new Axis(mc.type, mc.length(), 1, "channel"));
+              axes.add(new Axis(c, sizeC / mc.length(), 1, "channel"));
             }
             else {
-              axes.add(new Axis(c, sizeC / mc.length(), 1));
-              axes.add(new Axis(mc.type, mc.length(), 1));
+              axes.add(new Axis(c, sizeC / mc.length(), 1, "channel"));
+              axes.add(new Axis(mc.type, mc.length(), 1, "channel"));
             }
           }
           else {
-            axes.add(new Axis(c, sizeC, 1));
+            axes.add(new Axis(c, sizeC, 1, "channel"));
           }
           break;
         case 'T':
           if (mt != null && mt.length() > 1) {
             if (Math.abs(mt.step - 1) > Constants.EPSILON) {
-              axes.add(new Axis(mt.type, mt.length(), 1));
-              axes.add(new Axis(c, sizeT / mt.length(), 1));
+              axes.add(new Axis(mt.type, mt.length(), 1, "time"));
+              axes.add(new Axis(c, sizeT / mt.length(), 1, "time"));
             }
             else {
-              axes.add(new Axis(c, sizeT / mt.length(), 1));
-              axes.add(new Axis(mt.type, mt.length(), 1));
+              axes.add(new Axis(c, sizeT / mt.length(), 1, "time"));
+              axes.add(new Axis(mt.type, mt.length(), 1, "time"));
             }
           }
           else {
-            axes.add(new Axis(c, sizeT, 1));
+            axes.add(new Axis(c, sizeT, 1, "time"));
           }
           break;
         default:
@@ -3191,17 +3191,8 @@ public class Converter implements Callable<Integer> {
     List<Map<String, String>> axes = new ArrayList<Map<String, String>>();
     for (int i=0; i<activeAxes.size(); i++) {
       String axis = String.valueOf(activeAxes.get(i).getType()).toLowerCase();
-      String type = null;
+      String type = activeAxes.get(i).getDimensionType();
       Quantity scale = getScale(meta, series, axis);
-      if (axis.equals("x") || axis.equals("y") || axis.equals("z")) {
-        type = "space";
-      }
-      else if (axis.equals("t") || axis.toLowerCase().indexOf("time") >= 0) {
-        type = "time";
-      }
-      else if (axis.equals("c")) {
-        type = "channel";
-      }
       Map<String, String> thisAxis = new HashMap<String, String>();
       thisAxis.put("name", axis);
       if (type != null) {
