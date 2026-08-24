@@ -33,6 +33,8 @@ import ome.xml.model.primitives.NonNegativeInteger;
 public class CQ1Reader extends OMETiffReader {
 
   private List<String> extraFiles = new ArrayList<String>();
+  private transient boolean addPlateAcquisition = false;
+  private transient boolean addPlateName = false;
 
   /** Construct a new CQ1 reader. */
   public CQ1Reader() {
@@ -62,6 +64,8 @@ public class CQ1Reader extends OMETiffReader {
     super.close(fileOnly);
     if (!fileOnly) {
       extraFiles.clear();
+      addPlateAcquisition = false;
+      addPlateName = false;
     }
   }
 
@@ -91,12 +95,14 @@ public class CQ1Reader extends OMETiffReader {
 
     // set the plate name to something useful
 
-    String[] files = getSeriesUsedFiles();
-    Location pixels = new Location(files[files.length - 1]).getAbsoluteFile();
-    pixels = pixels.getParentFile();
-    String pixelsPath = pixels.getName();
-    String parentDirectory = pixels.getParentFile().getName();
-    metadataStore.setPlateName(parentDirectory + "_" + pixelsPath, 0);
+    if (addPlateName) {
+      String[] files = getSeriesUsedFiles();
+      Location pixels = new Location(files[files.length - 1]).getAbsoluteFile();
+      pixels = pixels.getParentFile();
+      String pixelsPath = pixels.getName();
+      String parentDirectory = pixels.getParentFile().getName();
+      metadataStore.setPlateName(parentDirectory + "_" + pixelsPath, 0);
+    }
   }
 
   @Override
@@ -105,8 +111,25 @@ public class CQ1Reader extends OMETiffReader {
     meta.resolveReferences();
     OMEXMLMetadataRoot root = (OMEXMLMetadataRoot) meta.getRoot();
     Plate plate = root.getPlate(0);
-    while (plate.sizeOfPlateAcquisitionList() > 0) {
-      plate.removePlateAcquisition(plate.getPlateAcquisition(0));
+
+    // if only one PlateAcquisition, keep it (expected for newer data)
+    // older data may have one PlateAcquisition per WellSample,
+    // in which case all PlateAcquisitions should be removed
+    int plateAcqCount = plate.sizeOfPlateAcquisitionList();
+    if (plateAcqCount > 1) {
+      while (plate.sizeOfPlateAcquisitionList() > 0) {
+        plate.removePlateAcquisition(plate.getPlateAcquisition(0));
+      }
+      addPlateAcquisition = true;
+    }
+
+    String originalPlateName = plate.getName();
+    if (originalPlateName == null || originalPlateName.isEmpty() ||
+      originalPlateName.equalsIgnoreCase("microplate"))
+    {
+      // don't set the plate name here as it's based on the
+      // path of the last used file (which hasn't been found yet)
+      addPlateName = true;
     }
 
     // remove the first Image, if it is not linked to the plate
@@ -157,14 +180,16 @@ public class CQ1Reader extends OMETiffReader {
 
     // add a new plate acquisition that links all well samples
 
-    store.setPlateAcquisitionID(
-      MetadataTools.createLSID("PlateAcquisition", 0, 0), 0, 0);
-    int nextSample = 0;
-    for (int w=0; w<plate.sizeOfWellList(); w++) {
-      Well well = plate.getWell(w);
-      for (int ws=0; ws<well.sizeOfWellSampleList(); ws++) {
-        String ref = well.getWellSample(ws).getID();
-        store.setPlateAcquisitionWellSampleRef(ref, 0, 0, nextSample++);
+    if (addPlateAcquisition) {
+      store.setPlateAcquisitionID(
+        MetadataTools.createLSID("PlateAcquisition", 0, 0), 0, 0);
+      int nextSample = 0;
+      for (int w=0; w<plate.sizeOfWellList(); w++) {
+        Well well = plate.getWell(w);
+        for (int ws=0; ws<well.sizeOfWellSampleList(); ws++) {
+          String ref = well.getWellSample(ws).getID();
+          store.setPlateAcquisitionWellSampleRef(ref, 0, 0, nextSample++);
+        }
       }
     }
 
