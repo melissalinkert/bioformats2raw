@@ -54,7 +54,7 @@ public class CQ1Reader extends OMETiffReader {
       return false;
     }
     String creator = getStoredMetadata().getCreator();
-    return creator != null && creator.startsWith("Yokogawa, CQ1");
+    return creator != null && creator.startsWith("Yokogawa, CQ");
   }
 
   @Override
