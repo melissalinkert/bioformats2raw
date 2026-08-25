@@ -10,9 +10,12 @@ package com.glencoesoftware.bioformats2raw;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import javax.xml.parsers.ParserConfigurationException;
 
+import loci.common.DataTools;
 import loci.common.Location;
 import loci.common.RandomAccessInputStream;
+import loci.common.xml.XMLTools;
 import loci.formats.FormatException;
 import loci.formats.MetadataTools;
 import loci.formats.in.OMETiffReader;
@@ -27,14 +30,22 @@ import ome.xml.model.Well;
 import ome.xml.model.WellSample;
 import ome.xml.model.primitives.NonNegativeInteger;
 
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
+
+
 /**
  * Reader for Yokogawa CQ1 data, which is largely based on OME-TIFF.
  */
 public class CQ1Reader extends OMETiffReader {
 
+  private static final String MEASUREMENT_PROTOCOL = "MeasurementProtocol.xml";
+
   private List<String> extraFiles = new ArrayList<String>();
   private transient boolean addPlateAcquisition = false;
   private transient boolean addPlateName = false;
+  private transient String protocolFile = null;
 
   /** Construct a new CQ1 reader. */
   public CQ1Reader() {
@@ -66,6 +77,7 @@ public class CQ1Reader extends OMETiffReader {
       extraFiles.clear();
       addPlateAcquisition = false;
       addPlateName = false;
+      protocolFile = null;
     }
   }
 
@@ -102,6 +114,16 @@ public class CQ1Reader extends OMETiffReader {
       String pixelsPath = pixels.getName();
       String parentDirectory = pixels.getParentFile().getName();
       metadataStore.setPlateName(parentDirectory + "_" + pixelsPath, 0);
+    }
+
+    // override channel names as the defaults are e.g. "Channel 1", "Channel 2"
+    List<String> channelNames = getChannelNames();
+    for (int i=0; i<getSeriesCount(); i++) {
+      for (int c=0; c<getEffectiveSizeC(); c++) {
+        if (c < channelNames.size()) {
+          metadataStore.setChannelName(channelNames.get(c), i, c);
+        }
+      }
     }
   }
 
@@ -194,6 +216,8 @@ public class CQ1Reader extends OMETiffReader {
     }
 
     // set channel names to emission wavelength
+    // this is a default in case the MeasurementProtocol.xml is not found
+    // or does not contain channel metadata
 
     for (int img=0; img<meta.getImageCount(); img++) {
       for (int c=0; c<meta.getChannelCount(img); c++) {
@@ -226,8 +250,81 @@ public class CQ1Reader extends OMETiffReader {
         findExtraFiles(file);
         continue;
       }
+      if (f.equalsIgnoreCase(MEASUREMENT_PROTOCOL)) {
+        protocolFile = file.getAbsolutePath();
+      }
       extraFiles.add(file.getAbsolutePath());
     }
+  }
+
+  private Element getFirstChild(Element root, String tag) {
+    NodeList list = root.getElementsByTagName(tag);
+    if (list == null || list.getLength() == 0) {
+      return null;
+    }
+    return (Element) list.item(0);
+  }
+
+  private String getAttribute(Element node, String attr) {
+    if (node == null) {
+      return null;
+    }
+    return node.getAttribute(attr);
+  }
+
+  private List<String> getChannelNames() throws FormatException, IOException {
+    ArrayList<String> names = new ArrayList<String>();
+    if (protocolFile != null) {
+      String protocolXML = DataTools.readFile(protocolFile);
+      Element root = null;
+      try {
+        root = XMLTools.parseDOM(protocolXML).getDocumentElement();
+      }
+      catch (ParserConfigurationException|SAXException e) {
+        LOGGER.warn("Could not parse " + protocolFile, e);
+      }
+      if (root == null) {
+        return names;
+      }
+      Element imagingProtocol = getFirstChild(root, "icm:ImagingProtocol");
+      if (imagingProtocol != null) {
+        Element channelList = getFirstChild(imagingProtocol, "icm:ChannelList");
+        if (channelList != null) {
+          NodeList channels = channelList.getElementsByTagName("icm:Channel");
+          for (int c=0; c<channels.getLength(); c++) {
+            Element channel = (Element) channels.item(c);
+            String enabled = channel.getAttribute("icm:IsEnabled");
+            if (enabled == null || enabled.equalsIgnoreCase("true")) {
+              String mode = channel.getAttribute("icm:Method");
+              if (mode.equalsIgnoreCase("brightfield")) {
+                names.add("Brightfield");
+              }
+              else {
+                String lightSource = getAttribute(
+                  getFirstChild(channel, "icm:LightSourceParameter"),
+                  "icm:Name");
+
+                String emFilter = getAttribute(
+                  getFirstChild(channel, "icm:EmissionFilterSetting"),
+                  "icm:Name");
+                String name = "";
+                if (lightSource != null) {
+                  name += lightSource;
+                }
+                if (emFilter != null) {
+                  if (!name.isEmpty()) {
+                    name += " ";
+                  }
+                  name += emFilter;
+                }
+                names.add(name);
+              }
+            }
+          }
+        }
+      }
+    }
+    return names;
   }
 
   @Override
