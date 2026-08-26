@@ -96,8 +96,7 @@ public class ZarrV3Test extends AbstractZarrTest {
     assertTrue(datasets.size() > 0);
     assertEquals("0", datasets.get(0).get("path"));
 
-    List<Map<String, Object>> axes =
-      (List<Map<String, Object>>) multiscale.get("axes");
+    List<Map<String, Object>> axes = getAxes(multiscale);
     checkAxes(axes, "TCZYX", null);
 
     for (int r=0; r<datasets.size(); r++) {
@@ -501,6 +500,18 @@ public class ZarrV3Test extends AbstractZarrTest {
       Arguments.of("uint32", DataType.UINT32),
       Arguments.of("int32", DataType.INT32)
     );
+  }
+
+  /**
+   * Get the list of axes for the given element of a "multiscales" array.
+   * The location of axes depends upon whether or not RFC-5 is supported in
+   * the version of OME-Zarr being written.
+   *
+   * @param multiscale element of "multiscales" array
+   * @return list of axes
+   */
+  public List<Map<String, Object>> getAxes(Map<String, Object> multiscale) {
+    return (List<Map<String, Object>>) multiscale.get("axes");
   }
 
 }

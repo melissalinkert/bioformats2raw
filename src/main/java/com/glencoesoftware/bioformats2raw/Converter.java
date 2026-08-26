@@ -151,6 +151,8 @@ public class Converter implements Callable<Integer> {
     "yottasecond", "zeptosecond", "zettasecond"
   );
 
+  private static final String COORDINATE_SYSTEM_NAME = "default";
+
   private volatile Path inputPath;
   private volatile String outputLocation;
 
@@ -3178,6 +3180,14 @@ public class Converter implements Callable<Integer> {
         }
       }
       scale.put("scale", axisValues);
+      if (getNGFFVersion().supportsCoordinateSystems()) {
+        Map<String, String> transformInput = new HashMap<String, String>();
+        transformInput.put("path", lastPath);
+        scale.put("input", transformInput);
+        Map<String, String> transformOutput = new HashMap<String, String>();
+        transformOutput.put("name", COORDINATE_SYSTEM_NAME);
+        scale.put("output", transformOutput);
+      }
 
       transforms.add(scale);
 
@@ -3220,7 +3230,15 @@ public class Converter implements Callable<Integer> {
       }
       axes.add(thisAxis);
     }
-    multiscale.put("axes", axes);
+    if (getNGFFVersion().supportsCoordinateSystems()) {
+      Map<String, Object> system = new HashMap<String, Object>();
+      system.put("name", COORDINATE_SYSTEM_NAME);
+      system.put("axes", axes);
+      multiscale.put("coordinateSystems", Arrays.asList(system));
+    }
+    else {
+      multiscale.put("axes", axes);
+    }
 
     int seriesIndex = seriesList.indexOf(series);
     String name = meta.getImageName(seriesIndex);

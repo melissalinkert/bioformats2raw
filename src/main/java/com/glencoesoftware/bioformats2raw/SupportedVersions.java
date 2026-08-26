@@ -14,7 +14,7 @@ public enum SupportedVersions {
   NGFF_01("0.1", 2, null),
   NGFF_04("0.4", 2, null),
   NGFF_05("0.5", 3, new Integer[] {2}),
-  NGFF_DEV("0.9.dev1", 3, new Integer[] {2, 3});
+  NGFF_DEV("0.9.dev1", 3, new Integer[] {2, 3, 5});
 
   private final String value;
   private final int zarrVersion;
@@ -45,6 +45,14 @@ public enum SupportedVersions {
    */
   public boolean supportsExtraDimensions() {
     return supportedRFCs != null && supportedRFCs.contains(3);
+  }
+
+  /**
+   * @return true if coordinate systems/transformations (RFC-5)
+   *              are supported by this version
+   */
+  public boolean supportsCoordinateSystems() {
+    return supportedRFCs != null && supportedRFCs.contains(5);
   }
 
   @Override

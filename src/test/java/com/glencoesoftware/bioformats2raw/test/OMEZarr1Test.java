@@ -9,6 +9,8 @@ package com.glencoesoftware.bioformats2raw.test;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
 import dev.zarr.zarrjava.utils.Utils;
 import dev.zarr.zarrjava.v3.Array;
@@ -24,6 +26,7 @@ import loci.formats.services.OMEXMLService;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class OMEZarr1Test extends ZarrV3Test {
 
@@ -149,6 +152,15 @@ public class OMEZarr1Test extends ZarrV3Test {
       reversed[reversed.length - i - 1] = pos[i];
     }
     return reversed;
+  }
+
+  @Override
+  public List<Map<String, Object>> getAxes(Map<String, Object> multiscale) {
+    List<Map<String, Object>> coordinateSystems =
+      (List<Map<String, Object>>) multiscale.get("coordinateSystems");
+    assertEquals(coordinateSystems.size(), 1);
+    assertEquals(coordinateSystems.get(0).get("name"), "default");
+    return (List<Map<String, Object>>) coordinateSystems.get(0).get("axes");
   }
 
 }
