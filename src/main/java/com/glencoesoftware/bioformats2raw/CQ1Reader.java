@@ -66,7 +66,7 @@ public class CQ1Reader extends OMETiffReader {
     if (!valid) {
       return false;
     }
-    String creator = getStoredMetadata().getCreator();
+    String creator = meta.getCreator();
     return creator != null && creator.startsWith("Yokogawa, CQ");
   }
 
@@ -193,12 +193,7 @@ public class CQ1Reader extends OMETiffReader {
 
     meta.setRoot(root);
 
-    try {
-      getService().convertMetadata(meta, store);
-    }
-    catch (FormatException e) {
-      LOGGER.error("Could not convert OME-XML metadata", e);
-    }
+    service.convertMetadata(meta, store);
 
     // add a new plate acquisition that links all well samples
 
