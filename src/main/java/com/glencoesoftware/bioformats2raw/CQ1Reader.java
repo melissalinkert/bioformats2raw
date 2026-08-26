@@ -34,11 +34,16 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Reader for Yokogawa CQ1 data, which is largely based on OME-TIFF.
  */
 public class CQ1Reader extends OMETiffReader {
+
+  private static final Logger LOGGER =
+    LoggerFactory.getLogger(CQ1Reader.class);
 
   private static final String MEASUREMENT_PROTOCOL = "MeasurementProtocol.xml";
 
