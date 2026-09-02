@@ -38,7 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Reader for Yokogawa CQ1 data, which is largely based on OME-TIFF.
+ * Reader for Yokogawa CQ data, which is largely based on OME-TIFF.
  */
 public class CQ1Reader extends OMETiffReader {
 
@@ -52,9 +52,9 @@ public class CQ1Reader extends OMETiffReader {
   private transient boolean addPlateName = false;
   private transient String protocolFile = null;
 
-  /** Construct a new CQ1 reader. */
+  /** Construct a new CQ reader. */
   public CQ1Reader() {
-    super("Yokogawa CQ1", new String[] {"ome.tif", "ome.tiff"});
+    super("Yokogawa CQ", new String[] {"ome.tif", "ome.tiff"});
   }
 
   @Override
