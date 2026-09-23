@@ -3191,6 +3191,7 @@ public class Converter implements Callable<Integer> {
 
     List<Double> resolutionScalesX = new ArrayList<Double>();
     List<Double> resolutionScalesY = new ArrayList<Double>();
+    List<Double> resolutionScalesZ = new ArrayList<Double>();
     try {
       v = readers.take();
       meta = (IMetadata) v.getMetadataStore();
@@ -3198,7 +3199,8 @@ public class Converter implements Callable<Integer> {
 
       int baseX = v.getSizeX();
       int baseY = v.getSizeY();
-      activeAxes = getDimensions(v, baseX, baseY, v.getSizeZ(), 1, 1, 1);
+      int baseZ = v.getSizeZ();
+      activeAxes = getDimensions(v, baseX, baseY, baseZ, 1, 1, 1);
 
       for (int r=0; r<resolutions; r++) {
         if (v.getResolutionCount() > 1 && reuseExistingResolutions) {
@@ -3206,16 +3208,21 @@ public class Converter implements Callable<Integer> {
           if (r == 0) {
             resolutionScalesX.add(1.0);
             resolutionScalesY.add(1.0);
+            resolutionScalesZ.add(1.0);
           }
           else {
             resolutionScalesX.add((double) baseX / v.getSizeX());
             resolutionScalesY.add((double) baseY / v.getSizeY());
+            resolutionScalesZ.add((double) baseZ / v.getSizeZ());
           }
         }
         else {
           double scale = Math.pow(PYRAMID_SCALE, r);
           resolutionScalesX.add(scale);
           resolutionScalesY.add(scale);
+          if (downsampleZ) {
+            resolutionScalesZ.add(scale);
+          }
         }
       }
     }
@@ -3261,6 +3268,9 @@ public class Converter implements Callable<Integer> {
           else if (axisType.equals("y")) {
             axisValues.add(as * resolutionScalesY.get(r));
           }
+          else if (downsampleZ && axisType.equals("z")) {
+            axisValues.add(as * resolutionScalesZ.get(r));
+          }
           else {
             axisValues.add(as);
           }
@@ -3273,6 +3283,9 @@ public class Converter implements Callable<Integer> {
             axisValues.add(resolutionScalesX.get(r));
           }
           else if (axisType.equals("y")) {
+            axisValues.add(resolutionScalesY.get(r));
+          }
+          else if (downsampleZ && axisType.equals("z")) {
             axisValues.add(resolutionScalesY.get(r));
           }
           else {
