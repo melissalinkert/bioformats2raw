@@ -284,7 +284,7 @@ public class MiraxReader extends FormatReader {
         TilePointer thisOffset = lookupTile(index, col, row, no / MAX_CHANNELS);
         if (thisOffset != null) {
           int channel = no % MAX_CHANNELS;
-          // 2 channel JPEG and PNG data needs to have the channel index inverted
+          // 2 channel JPEG or PNG data needs to have the channel index inverted
           // 2 channel JPEG-2000 data should not have the channel index inverted
           if (fluorescence &&
             (getSizeC() != 2 || format.get(index).equals("JPEG") ||
